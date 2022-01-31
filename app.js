@@ -1,15 +1,17 @@
 const express= require('express');
 const bodyParser= require('body-parser');
+const uuid= require('uuid');
 const mysql= require('mysql');
 const path = require('path');
 require('dotenv').config();
+const util = require('util')
 const app= express();
 const port = process.env.PORT || 5000;
 //body parser is a parsing middleware
 //parsing middleware
 //parse application/www.
 app.use(bodyParser.urlencoded({extended:false}))
- 
+
 // Install cookieparser, express-session: To Create Session
 var cookieParser= require('cookie-parser')
 var session= require('express-session')
@@ -53,6 +55,54 @@ if (err) throw err
 res.send(true);
     });
 })
+
+app.get("/vieworder/:id",(req,res)=>{
+    var params=req.params;
+    var session= req.session
+    if(req.session.userid!=null){
+    const sql=`SELECT love.order.order_date, love.order.order_group, status, food_price,food_name,quantity,mop,mods,purchased FROM food INNER JOIN love.order ON food.id = love.order.food_id INNER JOIN users ON users.id = ${session.userid.id} WHERE love.order.order_group = '${params.id}';`
+        db.query(sql, (err, rows) => {
+            console.log(sql)
+            res.render("vieworder",{user_data:session,other_data:rows,error:null})
+        })
+    }else{
+        res.redirect("/")
+    }
+
+ 
+})
+app.all("/editprofile/:id",(req,res)=>{
+    if (req.method=="POST"){
+
+    
+    var params=req.body;
+    var session= req.session
+    if(req.session.userid!=null){
+    const sql=`UPDATE users SET username='${params.username}', password='${params.password}',fname='${params.fname}',lname='${params.lname}',contactno='${params.contactno}',email='${params.email}' WHERE id= '${session.userid.id}';`
+        db.query(sql, (err, rows) => {
+            console.log(sql)
+            res.redirect("/logout")
+        })
+    }else{
+        res.redirect("/")
+    }
+}else{
+    var params=req.params;
+    var session= req.session
+    if(req.session.userid!=null){
+        const sql=`SELECT * FROM users WHERE id = '${session.userid.id}';`
+            db.query(sql, (err, rows) => {
+                console.log("MMEEEE"+sql)
+                res.render("editprofile",{user_data:session,data:rows,error:null})
+            })
+
+        }else{
+            res.redirect("/")
+        }
+   
+}
+ 
+})
 app.all("/signup",(req,res) =>{
     if (req.method=="POST"){
         var params=req.body;
@@ -67,6 +117,8 @@ app.all("/signup",(req,res) =>{
             var session= req.session
             console.log(session)
             session.username = {name:params.username}
+            session.fname={name:params.fname}
+            session.lname={name:params.lname}
             session.userid = {id:result1[0].id}
             session.role = {role:params.role}
             console.log(params.username)
@@ -94,7 +146,6 @@ app.all("/signin",(req,res)=>{
  
             }else{
                 var session=req.session
-               
                 session.userid={id:results[0].id}
                 session.role={role:results[0].role}
                 session.username={name:results[0].username}
@@ -121,9 +172,56 @@ app.get("/logout",(req,res)=>{
     res.redirect('/');
  
 })
+app.get("/approve/:id",(req,res)=>{
+    var params=req.params;
+    var session=req.session;
+    if(req.session.userid!=null){
+    const sql=`UPDATE love.order SET status="approved" WHERE order_group= '${params.id}'`
+        db.query(sql, (err, rows) => {
+            console.log(sql)
+            res.redirect("/admin_homepage",)
+        })
+    }else{
+        res.redirect("/")
+    }
+
+ 
+})
+
+app.get("/decline/:id",(req,res)=>{
+    var params=req.params;
+    var session=req.session;
+    if(req.session.userid!=null){
+    const sql=`UPDATE love.order SET status="declined" WHERE order_group= '${params.id}'`
+        db.query(sql, (err, rows) => {
+            console.log(sql)
+            res.redirect("/admin_homepage",)
+        })
+    }else{
+        res.redirect("/")
+    }
+
+ 
+})
+app.get("/deliver/:id",(req,res)=>{
+    var params=req.params;
+    var session=req.session;
+    if(req.session.userid!=null){
+    const sql=`UPDATE love.order SET status="deliver" WHERE order_group= '${params.id}'`
+        db.query(sql, (err, rows) => {
+            console.log(sql)
+            res.redirect("/admin_homepage",)
+        })
+    }else{
+        res.redirect("/")
+    }
+
+ 
+})
+
 app.all("/admin_homepage",(req,res)=>{
     if (req.session.userid!=null && req.session.role.role!="admin"){
-res.redirect("/user_homepage")
+        res.redirect('/user_homepage')
     }
     if(req.method=="POST"){
             var params=req.body;
@@ -142,23 +240,83 @@ res.redirect("/user_homepage")
      
     
     }else{
-        const sql1= `SELECT * FROM love.applicationform`
-        console.log(sql1)
         var session=req.session
+        const sqlyarn=`SELECT * FROM love.order GROUP BY order_group  `;
+        const sql1 = `SELECT love.order.order_date, status, food_name,quantity,food_price FROM food INNER JOIN love.order ON food.id = love.order.food_id`;
+        // const sql1= `SELECT * FROM love.order WHERE user_id=${req.session.userid.id}`
+        console.log(sqlyarn)
+        
         console.log("Hahaha"+session.userid.id)
-        db.query(sql1,(err1,results1)=>{
+        db.query(sql1,(err1,results5)=>{
             if (err1) throw err1;
-            console.log(results1)
-            if (results1.length==0){
-                res.render("admin_homepage",{operation:null,data:null,user_data:session});
+            console.log(results5)
+            if (results5.length==0){
+                
  
             }else{
-                res.render("admin_homepage",{operation:null,data:results1,user_data:session});
+                db.query(sqlyarn,(err1,results1)=>{
+                    if (err1) throw err1;
+                    console.log(results1)
+                    if (results1.length==0){
+                        res.render("admin_homepage",{operation:null,data:null,user_data:session});
+         
+                    }else{
+                        res.render("admin_homepage",{operation:null,data:results1,other_data:results5,user_data:session});
+                    }})
             }})
-            
 
         
     
+}
+})
+app.all("/order",(req,res)=>{
+    if (req.method=="POST"){
+        var params=req.body;
+        var order_id="";
+        console.log(util.inspect(params, {showHidden: false, depth: null, colors: true}))
+        var session=req.session;
+        console.log("kkkk"+params.id_array[1])
+        var food_ids = params.id_array.split(',').map(function(item) {
+            return parseInt(item, 10);
+        });
+        var purchased_quantity = params.purchased_array.split(',').map(function(item) {
+            return parseInt(item, 10);
+        });
+        
+        var food_idquantity=[];
+        const unique_id=uuid.v4()
+
+        for (let i = 0; i < purchased_quantity.length; i++) {
+            if(purchased_quantity[i]!=0 && order_id==""){
+        const sql=`INSERT INTO love.order (food_id,quantity,user_id, status,order_date,order_group,mop,mods,purchased) VALUES ('${food_ids[i]}','${purchased_quantity[i]}','${session.userid.id}', 'pending',NOW(), '${unique_id}','${params.mop}','${params.mod}','${params.purchased}')`;
+        
+        db.query(sql,(err1,results1)=>{
+            if (err1) throw err1;
+            console.log(results1)
+          
+        })
+                
+            
+        }
+        
+    }
+    res.redirect("/user_homepage")
+        
+
+    }else{
+
+    
+    var params=req.params;
+    var session=req.session;
+    users_id=params.id;
+    sql1=`SELECT * FROM love.food`;
+    db.query(sql1,(err1,results1)=>{
+        if (err1) throw err1;
+        console.log(results1)
+        res.render("order",{user_data:session,error:null,data:results1})
+    })
+    // res.render("order",{user_data:session,error:null,data:results1})
+
 }
 })
 app.all("/user_homepage",(req,res)=>{
@@ -179,19 +337,32 @@ app.all("/user_homepage",(req,res)=>{
      
     
     }else{
-        const sql1= `SELECT * FROM love.applicationform WHERE userid=${req.session.userid.id}`
-        console.log(sql1)
         var session=req.session
+        const sqlyarn=`SELECT * FROM love.order WHERE love.order.user_id =${session.userid.id} GROUP BY order_group  `;
+        const sql1 = `SELECT love.order.order_date, status, food_name,quantity,food_price FROM food INNER JOIN love.order ON food.id = love.order.food_id INNER JOIN users ON users.id = ${session.userid.id} `;
+        // const sql1= `SELECT * FROM love.order WHERE user_id=${req.session.userid.id}`
+        console.log(sqlyarn)
+        
         console.log("Hahaha"+session.userid.id)
-        db.query(sql1,(err1,results1)=>{
+        db.query(sql1,(err1,results5)=>{
             if (err1) throw err1;
-            console.log(results1)
-            if (results1.length==0){
-                res.render("user_homepage",{operation:null,data:null,user_data:session});
+            console.log(results5)
+            if (results5.length==0){
+                
  
             }else{
-                res.render("user_homepage",{operation:null,data:results1,user_data:session});
+                db.query(sqlyarn,(err1,results1)=>{
+                    if (err1) throw err1;
+                    console.log(results1)
+                    if (results1.length==0){
+                        res.render("user_homepage",{operation:null,data:null,user_data:session});
+         
+                    }else{
+                        res.render("user_homepage",{operation:null,data:results1,other_data:results5,user_data:session});
+                    }})
             }})
+        
+          
             
 
         
